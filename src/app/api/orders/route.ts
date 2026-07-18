@@ -20,6 +20,7 @@ export async function POST(req: Request) {
       .single();
 
     if (orderError || !order) {
+      console.error("Order insert error:", orderError);
       return NextResponse.json({ error: orderError?.message }, { status: 500 });
     }
 
