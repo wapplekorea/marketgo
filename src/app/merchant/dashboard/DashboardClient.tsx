@@ -25,11 +25,11 @@ type Store = {
 };
 
 const STATUS_CONFIG = {
-  pending:   { label: "접수 대기",  color: "bg-yellow-100 text-yellow-700", next: "confirmed" as const, nextLabel: "접수하기" },
-  confirmed: { label: "준비 중",    color: "bg-blue-100 text-blue-700",     next: "ready"     as const, nextLabel: "준비 완료" },
-  ready:     { label: "준비 완료",  color: "bg-green-100 text-green-700",   next: "done"      as const, nextLabel: "완료 처리" },
-  done:      { label: "완료",       color: "bg-gray-100 text-gray-500",     next: null,                  nextLabel: "" },
-  cancelled: { label: "취소",       color: "bg-red-100 text-red-500",       next: null,                  nextLabel: "" },
+  pending:   { label: "접수 대기",  accent: "#FF9500", bg: "rgba(255,149,0,0.12)",   next: "confirmed" as const, nextLabel: "접수" },
+  confirmed: { label: "준비 중",    accent: "#007AFF", bg: "rgba(0,122,255,0.12)",    next: "ready"     as const, nextLabel: "준비 완료" },
+  ready:     { label: "준비 완료",  accent: "#34C759", bg: "rgba(52,199,89,0.12)",    next: "done"      as const, nextLabel: "완료" },
+  done:      { label: "완료",       accent: "#8E8E93", bg: "rgba(142,142,147,0.12)", next: null,                  nextLabel: "" },
+  cancelled: { label: "취소",       accent: "#FF3B30", bg: "rgba(255,59,48,0.12)",   next: null,                  nextLabel: "" },
 };
 
 export default function DashboardClient({
@@ -44,13 +44,9 @@ export default function DashboardClient({
   const [togglingOpen, setTogglingOpen] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  // 폴링 (5초마다)
   const fetchOrders = useCallback(async () => {
     const res = await fetch(`/api/stores/${store.id}/orders`);
-    if (res.ok) {
-      const data = await res.json();
-      setOrders(data);
-    }
+    if (res.ok) setOrders(await res.json());
   }, [store.id]);
 
   useEffect(() => {
@@ -80,105 +76,178 @@ export default function DashboardClient({
     setUpdatingId(null);
   }
 
-  const pendingCount = orders.filter(o => o.status === "pending").length;
+  const pendingOrders = orders.filter(o => o.status === "pending");
+  const activeOrders = orders.filter(o => o.status === "confirmed" || o.status === "ready");
+  const doneOrders   = orders.filter(o => o.status === "done" || o.status === "cancelled");
+
+  function OrderCard({ order }: { order: Order }) {
+    const cfg = STATUS_CONFIG[order.status];
+    return (
+      <div
+        className="overflow-hidden"
+        style={{ background: "var(--sys-bg2)", borderRadius: "16px" }}
+      >
+        {/* 카드 헤더 */}
+        <div className="flex items-center justify-between px-4 pt-4 pb-3">
+          <div>
+            <p className="text-[16px] font-semibold" style={{ color: "var(--sys-label)" }}>
+              {order.customer_name ?? "익명"} 님
+            </p>
+            <p className="text-[12px] font-mono mt-0.5" style={{ color: "var(--sys-label3)" }}>
+              {order.id.slice(0, 8).toUpperCase()}
+            </p>
+          </div>
+          <span
+            className="text-[12px] font-semibold px-2.5 py-1 rounded-full"
+            style={{ color: cfg.accent, background: cfg.bg }}
+          >
+            {cfg.label}
+          </span>
+        </div>
+
+        {/* 메뉴 항목 */}
+        <div
+          className="mx-4 py-3 space-y-1.5"
+          style={{ borderTop: "0.5px solid var(--sys-sep)" }}
+        >
+          {order.order_items.map(item => (
+            <div key={item.id} className="flex justify-between items-center">
+              <span className="text-[14px]" style={{ color: "var(--sys-label)" }}>
+                {item.menu_items?.name} × {item.quantity}
+              </span>
+              <span className="text-[14px]" style={{ color: "var(--sys-label2)" }}>
+                {(item.unit_price * item.quantity).toLocaleString()}원
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* 푸터 */}
+        <div
+          className="flex items-center justify-between px-4 py-3"
+          style={{ borderTop: "0.5px solid var(--sys-sep)" }}
+        >
+          <span className="text-[16px] font-bold" style={{ color: "var(--brand)" }}>
+            {order.total_amount.toLocaleString()}원
+          </span>
+          <div className="flex items-center gap-2">
+            {order.status !== "done" && order.status !== "cancelled" && (
+              <button
+                onClick={() => updateStatus(order.id, "cancelled")}
+                disabled={updatingId === order.id}
+                className="text-[13px] px-3 py-1.5 rounded-[10px] font-medium transition-opacity active:opacity-60 disabled:opacity-40"
+                style={{
+                  color: "var(--sys-red)",
+                  background: "rgba(255,59,48,0.10)",
+                }}
+              >
+                취소
+              </button>
+            )}
+            {cfg.next && (
+              <button
+                onClick={() => updateStatus(order.id, cfg.next!)}
+                disabled={updatingId === order.id}
+                className="text-[14px] font-semibold px-4 py-1.5 rounded-[10px] text-white transition-opacity active:opacity-80 disabled:opacity-40"
+                style={{ background: "var(--brand)" }}
+              >
+                {updatingId === order.id ? "..." : cfg.nextLabel}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="px-4 py-5 pb-24">
-      {/* 가게 상태 토글 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-5 flex items-center justify-between">
+    <div className="px-4 py-4 pb-28">
+
+      {/* 가게 상태 카드 */}
+      <div
+        className="flex items-center justify-between px-4 py-4 mb-5"
+        style={{ background: "var(--sys-bg2)", borderRadius: "16px" }}
+      >
         <div>
-          <p className="font-semibold text-gray-900">{store.name}</p>
-          <p className={`text-sm font-medium ${isOpen ? "text-green-600" : "text-gray-400"}`}>
-            {isOpen ? "🟢 영업 중" : "⚫ 준비 중"}
+          <p className="text-[16px] font-semibold" style={{ color: "var(--sys-label)" }}>
+            {store.name}
           </p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ background: isOpen ? "var(--sys-green)" : "var(--sys-label3)" }}
+            />
+            <p className="text-[13px] font-medium" style={{ color: isOpen ? "var(--sys-green)" : "var(--sys-label3)" }}>
+              {isOpen ? "영업 중" : "준비 중"}
+            </p>
+          </div>
         </div>
         <button
           onClick={toggleOpen}
           disabled={togglingOpen}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            isOpen
-              ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              : "bg-orange-500 text-white hover:bg-orange-600"
-          } disabled:opacity-50`}
+          className="text-[14px] font-semibold px-4 py-2 rounded-[12px] transition-opacity active:opacity-70 disabled:opacity-40"
+          style={isOpen
+            ? { color: "var(--sys-label2)", background: "var(--sys-fill)" }
+            : { color: "#fff", background: "var(--brand)" }
+          }
         >
           {togglingOpen ? "..." : isOpen ? "영업 종료" : "영업 시작"}
         </button>
       </div>
 
-      {/* 헤더 */}
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-lg font-bold text-gray-900">주문 수신</h1>
-        {pendingCount > 0 && (
-          <span className="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-            신규 {pendingCount}건
-          </span>
-        )}
-      </div>
+      {/* 접수 대기 */}
+      {pendingOrders.length > 0 && (
+        <section className="mb-5">
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: "var(--sys-label3)" }}>
+              접수 대기
+            </h2>
+            <span
+              className="text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center text-white"
+              style={{ background: "var(--sys-red)" }}
+            >
+              {pendingOrders.length}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {pendingOrders.map(o => <OrderCard key={o.id} order={o} />)}
+          </div>
+        </section>
+      )}
 
-      {/* 주문 목록 */}
-      <div className="space-y-3">
-        {orders.map(order => {
-          const cfg = STATUS_CONFIG[order.status];
-          return (
-            <div key={order.id} className="bg-white rounded-xl border border-gray-100 p-4">
-              {/* 주문 헤더 */}
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="font-semibold text-gray-900">
-                    {order.customer_name ?? "익명"} 님
-                  </p>
-                  <p className="text-xs text-gray-400 font-mono">
-                    {order.id.slice(0, 8).toUpperCase()}
-                  </p>
-                </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${cfg.color}`}>
-                  {cfg.label}
-                </span>
-              </div>
+      {/* 진행 중 */}
+      {activeOrders.length > 0 && (
+        <section className="mb-5">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide mb-3 px-1" style={{ color: "var(--sys-label3)" }}>
+            진행 중
+          </h2>
+          <div className="space-y-2">
+            {activeOrders.map(o => <OrderCard key={o.id} order={o} />)}
+          </div>
+        </section>
+      )}
 
-              {/* 메뉴 */}
-              <div className="space-y-1 mb-3">
-                {order.order_items.map(item => (
-                  <div key={item.id} className="flex justify-between text-sm text-gray-700">
-                    <span>{item.menu_items?.name} × {item.quantity}</span>
-                    <span>{(item.unit_price * item.quantity).toLocaleString()}원</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between border-t pt-3">
-                <span className="font-bold text-orange-500">{order.total_amount.toLocaleString()}원</span>
-                <div className="flex gap-2">
-                  {order.status !== "done" && order.status !== "cancelled" && (
-                    <button
-                      onClick={() => updateStatus(order.id, "cancelled")}
-                      disabled={updatingId === order.id}
-                      className="text-xs text-gray-400 hover:text-red-500 px-2 py-1"
-                    >
-                      취소
-                    </button>
-                  )}
-                  {cfg.next && (
-                    <button
-                      onClick={() => updateStatus(order.id, cfg.next!)}
-                      disabled={updatingId === order.id}
-                      className="bg-orange-500 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-orange-600 disabled:opacity-50"
-                    >
-                      {updatingId === order.id ? "..." : cfg.nextLabel}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* 완료 */}
+      {doneOrders.length > 0 && (
+        <section className="mb-5">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide mb-3 px-1" style={{ color: "var(--sys-label3)" }}>
+            완료
+          </h2>
+          <div className="space-y-2 opacity-60">
+            {doneOrders.map(o => <OrderCard key={o.id} order={o} />)}
+          </div>
+        </section>
+      )}
 
       {orders.length === 0 && (
-        <div className="text-center text-gray-400 py-20">
-          <div className="text-5xl mb-3">📋</div>
-          <p>현재 처리 중인 주문이 없습니다</p>
-          <p className="text-xs mt-1">새 주문이 오면 여기에 표시됩니다 (5초마다 자동 갱신)</p>
+        <div className="text-center py-24">
+          <div className="text-[52px] mb-4">📋</div>
+          <p className="text-[16px] font-medium" style={{ color: "var(--sys-label2)" }}>
+            처리 중인 주문이 없습니다
+          </p>
+          <p className="text-[13px] mt-1" style={{ color: "var(--sys-label3)" }}>
+            새 주문은 5초마다 자동으로 갱신됩니다
+          </p>
         </div>
       )}
     </div>

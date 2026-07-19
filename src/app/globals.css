@@ -1,20 +1,71 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --brand: #F97316;
-  --brand-dark: #EA6C0A;
+  /* iOS System Grouped Backgrounds */
+  --sys-bg:  #F2F2F7;
+  --sys-bg2: #FFFFFF;
+  --sys-bg3: #F2F2F7;
+
+  /* Labels */
+  --sys-label:  #1C1C1E;
+  --sys-label2: #636366;
+  --sys-label3: #AEAEB2;
+  --sys-label4: #C7C7CC;
+
+  /* Fills */
+  --sys-fill:  rgba(120, 120, 128, 0.12);
+  --sys-fill2: rgba(120, 120, 128, 0.08);
+
+  /* Separators */
+  --sys-sep:  rgba(60, 60, 67, 0.13);
+  --sys-sep2: rgba(60, 60, 67, 0.29);
+
+  /* System accent colors */
+  --sys-blue:   #007AFF;
+  --sys-green:  #34C759;
+  --sys-red:    #FF3B30;
+  --sys-orange: #FF9500;
+
+  /* Brand */
+  --brand:       #FF6B00;
+  --brand-dark:  #E55A00;
+  --brand-light: rgba(255, 107, 0, 0.12);
+
+  --background: var(--sys-bg);
+  --foreground: var(--sys-label);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-brand: var(--brand);
-  --font-sans: var(--font-geist);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--sys-bg);
+  color: var(--sys-label);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", Arial, sans-serif;
+  min-height: 100dvh;
 }
+
+/* iOS-style scroll momentum */
+.ios-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Safe area helpers */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top: env(safe-area-inset-top); }

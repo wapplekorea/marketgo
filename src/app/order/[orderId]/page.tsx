@@ -1,13 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 
-const STATUS_LABEL: Record<string, { label: string; emoji: string; color: string }> = {
-  pending:   { label: "주문 접수 중",   emoji: "⏳", color: "text-yellow-600 bg-yellow-50" },
-  confirmed: { label: "주문 확인됨",    emoji: "✅", color: "text-blue-600 bg-blue-50" },
-  ready:     { label: "준비 완료",       emoji: "🍽️", color: "text-green-600 bg-green-50" },
-  done:      { label: "완료",            emoji: "🎉", color: "text-gray-600 bg-gray-50" },
-  cancelled: { label: "취소됨",          emoji: "❌", color: "text-red-600 bg-red-50" },
+type StatusConfig = {
+  label: string;
+  sub: string;
+  icon: string;
+  accent: string;
+  bg: string;
+};
+
+const STATUS_CONFIG: Record<string, StatusConfig> = {
+  pending:   { label: "주문 접수 중",  sub: "가게에서 주문을 확인하고 있어요",   icon: "⏳", accent: "#FF9500", bg: "rgba(255,149,0,0.10)" },
+  confirmed: { label: "준비 중",       sub: "음식을 열심히 준비하고 있어요",      icon: "👨‍🍳", accent: "#007AFF", bg: "rgba(0,122,255,0.10)" },
+  ready:     { label: "준비 완료",     sub: "음식이 준비됐어요! 가져가세요 🎉",   icon: "🍽️", accent: "#34C759", bg: "rgba(52,199,89,0.10)" },
+  done:      { label: "완료",          sub: "맛있게 드세요!",                      icon: "✅", accent: "#8E8E93", bg: "rgba(142,142,147,0.10)" },
+  cancelled: { label: "취소됨",        sub: "주문이 취소되었습니다",               icon: "✕",  accent: "#FF3B30", bg: "rgba(255,59,48,0.10)" },
 };
 
 export const dynamic = "force-dynamic";
@@ -24,29 +31,64 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
 
   if (!order) notFound();
 
-  const status = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
+  const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4">
-      <div className="w-full max-w-sm">
-        {/* 로고 */}
-        <div className="text-center mb-6">
-          <span className="text-xl font-bold text-orange-500">🛍️ MarketGo</span>
-        </div>
+    <div className="min-h-dvh flex flex-col" style={{ background: "var(--sys-bg)" }}>
+
+      {/* 브랜드 헤더 */}
+      <div
+        className="h-11 flex items-center justify-center"
+        style={{ borderBottom: "0.5px solid var(--sys-sep)" }}
+      >
+        <span className="text-[17px] font-bold" style={{ color: "var(--brand)" }}>MarketGo</span>
+      </div>
+
+      <div className="flex-1 px-4 py-6 max-w-sm mx-auto w-full">
 
         {/* 상태 카드 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-4 text-center">
-          <div className="text-5xl mb-3">{status.emoji}</div>
-          <span className={`inline-block text-sm font-medium px-3 py-1 rounded-full ${status.color} mb-2`}>
-            {status.label}
+        <div
+          className="text-center px-6 py-8 mb-4"
+          style={{ background: "var(--sys-bg2)", borderRadius: "20px" }}
+        >
+          {/* 아이콘 */}
+          <div
+            className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-4xl mb-4"
+            style={{ background: cfg.bg }}
+          >
+            {cfg.icon}
+          </div>
+
+          {/* 상태 배지 */}
+          <span
+            className="inline-block text-[13px] font-semibold px-3 py-1 rounded-full mb-2"
+            style={{ color: cfg.accent, background: cfg.bg }}
+          >
+            {cfg.label}
           </span>
-          <p className="text-gray-500 text-sm mt-1">{order.stores?.name}</p>
-          <p className="text-xs text-gray-400">{order.stores?.markets?.name}</p>
+
+          <p className="text-[15px] mt-1" style={{ color: "var(--sys-label2)" }}>
+            {cfg.sub}
+          </p>
+
+          <div className="mt-4 pt-4" style={{ borderTop: "0.5px solid var(--sys-sep)" }}>
+            <p className="text-[17px] font-semibold" style={{ color: "var(--sys-label)" }}>
+              {order.stores?.name}
+            </p>
+            <p className="text-[13px] mt-0.5" style={{ color: "var(--sys-label3)" }}>
+              {(order.stores as { name: string; markets?: { name: string } } | null)?.markets?.name}
+            </p>
+          </div>
         </div>
 
-        {/* 주문 상세 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
-          <h2 className="font-semibold text-gray-900 mb-3">주문 내역</h2>
+        {/* 주문 내역 */}
+        <div
+          className="px-5 py-4 mb-4"
+          style={{ background: "var(--sys-bg2)", borderRadius: "16px" }}
+        >
+          <p className="text-[15px] font-semibold mb-3" style={{ color: "var(--sys-label)" }}>
+            주문 내역
+          </p>
           <div className="space-y-2">
             {order.order_items?.map((item: {
               id: string;
@@ -54,31 +96,58 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
               unit_price: number;
               menu_items: { name: string; price: number } | null;
             }) => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <span className="text-gray-700">{item.menu_items?.name} × {item.quantity}</span>
-                <span className="font-medium">{(item.unit_price * item.quantity).toLocaleString()}원</span>
+              <div key={item.id} className="flex justify-between items-center">
+                <span className="text-[14px]" style={{ color: "var(--sys-label2)" }}>
+                  {item.menu_items?.name} × {item.quantity}
+                </span>
+                <span className="text-[14px] font-medium" style={{ color: "var(--sys-label)" }}>
+                  {(item.unit_price * item.quantity).toLocaleString()}원
+                </span>
               </div>
             ))}
           </div>
-          <div className="border-t mt-3 pt-3 flex justify-between font-bold">
-            <span>합계</span>
-            <span className="text-orange-500">{order.total_amount.toLocaleString()}원</span>
+          <div
+            className="flex justify-between items-center mt-3 pt-3"
+            style={{ borderTop: "0.5px solid var(--sys-sep)" }}
+          >
+            <span className="text-[15px] font-bold" style={{ color: "var(--sys-label)" }}>합계</span>
+            <span className="text-[17px] font-bold" style={{ color: "var(--brand)" }}>
+              {order.total_amount.toLocaleString()}원
+            </span>
           </div>
         </div>
 
-        {/* 주문번호 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">주문번호</span>
-            <span className="text-gray-700 font-mono text-xs">{orderId.slice(0, 8).toUpperCase()}</span>
+        {/* 주문 정보 */}
+        <div
+          className="px-5 py-4"
+          style={{ background: "var(--sys-bg2)", borderRadius: "16px" }}
+        >
+          <div className="flex justify-between items-center py-1">
+            <span className="text-[14px]" style={{ color: "var(--sys-label2)" }}>주문번호</span>
+            <span
+              className="text-[13px] font-mono font-medium"
+              style={{ color: "var(--sys-label)" }}
+            >
+              {orderId.slice(0, 8).toUpperCase()}
+            </span>
           </div>
-          <div className="flex justify-between text-sm mt-1">
-            <span className="text-gray-500">주문자</span>
-            <span className="text-gray-700">{order.customer_name ?? "—"}</span>
+          <div
+            className="flex justify-between items-center py-1"
+            style={{ borderTop: "0.5px solid var(--sys-sep)" }}
+          >
+            <span className="text-[14px]" style={{ color: "var(--sys-label2)" }}>주문자</span>
+            <span className="text-[14px] font-medium" style={{ color: "var(--sys-label)" }}>
+              {order.customer_name ?? "—"}
+            </span>
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-400">이 페이지를 새로고침하면 현재 상태를 확인할 수 있어요</p>
+        <p
+          className="text-center text-[12px] mt-5"
+          style={{ color: "var(--sys-label4)" }}
+        >
+          새로고침하면 최신 상태를 확인할 수 있어요
+        </p>
       </div>
     </div>
   );
