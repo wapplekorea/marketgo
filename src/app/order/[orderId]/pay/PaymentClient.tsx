@@ -38,17 +38,23 @@ export default function PaymentClient({
     const script = document.createElement("script");
     script.src = "https://js.tosspayments.com/v2/standard";
     script.onload = async () => {
-      const tossPayments = window.TossPayments(clientKey);
-      const widgets = tossPayments.widgets({ customerKey: `customer_${orderId}` });
-      widgetRef.current = widgets;
+      try {
+        const tossPayments = window.TossPayments(clientKey);
+        const widgets = tossPayments.widgets({ customerKey: `customer_${orderId}` });
+        widgetRef.current = widgets;
 
-      await widgets.setAmount({ currency: "KRW", value: amount });
-      await Promise.all([
-        widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
-        widgets.renderAgreement({ selector: "#payment-agreement", variantKey: "AGREEMENT" }),
-      ]);
+        await widgets.setAmount({ currency: "KRW", value: amount });
+        await Promise.all([
+          widgets.renderPaymentMethods({ selector: "#payment-method", variantKey: "DEFAULT" }),
+          widgets.renderAgreement({ selector: "#payment-agreement", variantKey: "AGREEMENT" }),
+        ]);
+      } catch (e) {
+        console.warn("Toss widget init failed, using fallback", e);
+        widgetRef.current = null;
+      }
       setReady(true);
     };
+    script.onerror = () => setReady(true);
     document.head.appendChild(script);
   }, [orderId, amount]);
 
