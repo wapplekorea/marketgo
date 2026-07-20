@@ -24,10 +24,19 @@ const TABS = [
     label: "메뉴",
     icon: (active: boolean) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        {/* 포크 */}
         <path
-          d="M12 2C13.1046 2 14 2.89543 14 4V8.26756C15.1956 8.61337 16.2671 9.2668 17.1213 10.1213C18.3166 11.3166 19 12.9 19 14.5C19 17.5376 16.5376 20 13.5 20H10.5C7.46243 20 5 17.5376 5 14.5C5 12.9 5.68342 11.3166 6.87868 10.1213C7.73284 9.2668 8.80436 8.61337 10 8.26756V4C10 2.89543 10.8954 2 12 2Z"
+          d="M8 3V8M8 11V21M6 3V6M10 3V6M6 6C6 7.65685 6.89543 9 8 9C9.10457 9 10 7.65685 10 6"
           stroke={active ? "var(--brand)" : "var(--sys-label3)"}
-          strokeWidth={active ? "2.2" : "1.8"}
+          strokeWidth={active ? "2" : "1.8"}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* 나이프 */}
+        <path
+          d="M16 3C16 3 18 5 18 9C18 11 17 12 16 12V21"
+          stroke={active ? "var(--brand)" : "var(--sys-label3)"}
+          strokeWidth={active ? "2" : "1.8"}
           strokeLinecap="round"
           strokeLinejoin="round"
         />

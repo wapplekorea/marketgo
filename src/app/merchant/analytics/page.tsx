@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import AnalyticsChart from "./AnalyticsChart";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +28,11 @@ export default async function AnalyticsPage() {
     .neq("status", "cancelled")
     .gte("created_at", since.toISOString());
 
-  const totalRevenue = (orders ?? []).reduce((s, o) => s + o.total_amount, 0);
-  const totalOrders = (orders ?? []).length;
-  const doneOrders = (orders ?? []).filter(o => o.status === "done").length;
+  const all = orders ?? [];
+  const totalRevenue = all.reduce((s, o) => s + o.total_amount, 0);
+  const totalOrders  = all.length;
+  const doneOrders   = all.filter(o => o.status === "done").length;
+  const completionRate = totalOrders ? Math.round(doneOrders / totalOrders * 100) : 0;
 
   // 일별 매출 (최근 7일)
   const dailyMap: Record<string, number> = {};
@@ -38,59 +41,52 @@ export default async function AnalyticsPage() {
     d.setDate(d.getDate() - i);
     dailyMap[d.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })] = 0;
   }
-  (orders ?? []).forEach(o => {
+  all.forEach(o => {
     const day = new Date(o.created_at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" });
     if (day in dailyMap) dailyMap[day] += o.total_amount;
   });
-  const daily = Object.entries(dailyMap);
-  const maxDaily = Math.max(...daily.map(([, v]) => v), 1);
+  const daily = Object.entries(dailyMap).map(([day, amount]) => ({ day, amount }));
+
+  const kpis = [
+    { label: "총 매출",   value: `${totalRevenue.toLocaleString()}원`, accent: "var(--brand)" },
+    { label: "총 주문",   value: `${totalOrders}건`,                    accent: "var(--sys-blue)" },
+    { label: "완료 주문", value: `${doneOrders}건`,                     accent: "var(--sys-green)" },
+    { label: "완료율",    value: totalOrders ? `${completionRate}%` : "—", accent: "#AF52DE" },
+  ];
 
   return (
-    <div className="px-4 py-5 pb-24">
-      <h1 className="text-lg font-bold text-gray-900 mb-4">매출 분석</h1>
-      <p className="text-xs text-gray-400 mb-4">최근 30일 기준</p>
+    <div className="px-4 py-5 pb-28" style={{ background: "var(--sys-bg)" }}>
 
-      {/* KPI */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        {[
-          { label: "총 매출", value: `${totalRevenue.toLocaleString()}원`, color: "text-orange-500" },
-          { label: "총 주문", value: `${totalOrders}건`,                    color: "text-blue-500" },
-          { label: "완료 주문", value: `${doneOrders}건`,                   color: "text-green-600" },
-          { label: "완료율", value: totalOrders ? `${Math.round(doneOrders / totalOrders * 100)}%` : "—", color: "text-purple-600" },
-        ].map(kpi => (
-          <div key={kpi.label} className="bg-white rounded-xl border border-gray-100 p-4">
-            <p className="text-xs text-gray-500 mb-1">{kpi.label}</p>
-            <p className={`text-xl font-bold ${kpi.color}`}>{kpi.value}</p>
+      {/* 헤더 */}
+      <h1 className="text-[22px] font-bold mb-1" style={{ color: "var(--sys-label)" }}>
+        매출 분석
+      </h1>
+      <p className="text-[13px] mb-5" style={{ color: "var(--sys-label3)" }}>최근 30일 기준</p>
+
+      {/* KPI 카드 2×2 */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        {kpis.map(kpi => (
+          <div
+            key={kpi.label}
+            className="px-4 py-4"
+            style={{ background: "var(--sys-bg2)", borderRadius: "16px" }}
+          >
+            <p className="text-[12px] mb-1.5" style={{ color: "var(--sys-label3)" }}>{kpi.label}</p>
+            <p className="text-[22px] font-bold tabular-nums" style={{ color: kpi.accent }}>
+              {kpi.value}
+            </p>
           </div>
         ))}
       </div>
 
-      {/* 일별 매출 차트 */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">최근 7일 매출</h2>
-        <div className="flex items-end gap-1.5 h-28">
-          {daily.map(([day, amount]) => (
-            <div key={day} className="flex-1 flex flex-col items-center gap-1">
-              <div
-                className="w-full bg-orange-100 rounded-t-sm relative"
-                style={{ height: `${(amount / maxDaily) * 100}%`, minHeight: amount > 0 ? "4px" : "2px" }}
-              >
-                {amount > 0 && (
-                  <div
-                    className="absolute inset-0 bg-orange-400 rounded-t-sm"
-                    title={`${amount.toLocaleString()}원`}
-                  />
-                )}
-              </div>
-              <span className="text-[9px] text-gray-400 whitespace-nowrap">{day}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* 인터랙티브 바 차트 */}
+      <AnalyticsChart daily={daily} />
 
       {totalOrders === 0 && (
-        <div className="text-center text-gray-400 py-8">
-          <p className="text-sm">아직 주문 데이터가 없습니다</p>
+        <div className="text-center py-10">
+          <p className="text-[15px]" style={{ color: "var(--sys-label3)" }}>
+            아직 주문 데이터가 없습니다
+          </p>
         </div>
       )}
     </div>
